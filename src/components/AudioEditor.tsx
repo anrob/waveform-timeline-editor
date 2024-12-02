@@ -7,6 +7,7 @@ import AudioTrack from './AudioTrack';
 import Timeline from './Timeline';
 import { useToast } from "@/components/ui/use-toast";
 import { Button } from "@/components/ui/button";
+import { Loader2 } from "lucide-react";
 
 interface Track {
   file: File;
@@ -24,15 +25,32 @@ const AudioEditor: React.FC = () => {
   const ffmpegRef = useRef(new FFmpeg());
   const [loaded, setLoaded] = useState(false);
   const { toast } = useToast();
+  const [isFFmpegLoading, setIsFFmpegLoading] = useState(true);
 
   const load = async () => {
-    const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
-    const ffmpeg = ffmpegRef.current;
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-      wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
-    });
-    setLoaded(true);
+    try {
+      setIsFFmpegLoading(true);
+      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+      const ffmpeg = ffmpegRef.current;
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+      });
+      setLoaded(true);
+      toast({
+        title: "Ready to Export",
+        description: "FFmpeg has been loaded successfully.",
+      });
+    } catch (error) {
+      console.error('FFmpeg loading error:', error);
+      toast({
+        title: "FFmpeg Loading Error",
+        description: "Failed to load FFmpeg. Export functionality may be limited.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsFFmpegLoading(false);
+    }
   };
 
   React.useEffect(() => {
@@ -104,10 +122,19 @@ const AudioEditor: React.FC = () => {
   };
 
   const exportTimeline = async () => {
+    if (isFFmpegLoading) {
+      toast({
+        title: "Please Wait",
+        description: "FFmpeg is still loading. Please try again in a moment.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (!loaded) {
       toast({
         title: "Export Error",
-        description: "FFmpeg is not loaded yet. Please try again in a moment.",
+        description: "FFmpeg failed to load. Please refresh the page and try again.",
         variant: "destructive",
       });
       return;
@@ -231,9 +258,21 @@ const AudioEditor: React.FC = () => {
           <Button
             className="w-full"
             onClick={exportTimeline}
-            disabled={isExporting}
+            disabled={isExporting || isFFmpegLoading}
           >
-            {isExporting ? 'Exporting...' : 'Export Timeline'}
+            {isExporting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Exporting...
+              </>
+            ) : isFFmpegLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Loading FFmpeg...
+              </>
+            ) : (
+              'Export Timeline'
+            )}
           </Button>
         )}
       </div>
