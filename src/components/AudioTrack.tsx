@@ -3,12 +3,19 @@ import WaveSurfer from 'wavesurfer.js';
 
 interface AudioTrackProps {
   file: File;
-  onLoad: (duration: number) => void;
+  onLoad: (duration: number, wavesurfer: WaveSurfer) => void;
   position: number;
   onPositionChange: (newPosition: number) => void;
+  isPlaying?: boolean;
 }
 
-const AudioTrack: React.FC<AudioTrackProps> = ({ file, onLoad, position, onPositionChange }) => {
+const AudioTrack: React.FC<AudioTrackProps> = ({ 
+  file, 
+  onLoad, 
+  position, 
+  onPositionChange,
+  isPlaying = false 
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const wavesurferRef = useRef<WaveSurfer | null>(null);
   const isDragging = useRef(false);
@@ -30,13 +37,21 @@ const AudioTrack: React.FC<AudioTrackProps> = ({ file, onLoad, position, onPosit
 
     wavesurfer.loadBlob(file);
     wavesurfer.on('ready', () => {
-      onLoad(wavesurfer.getDuration());
+      onLoad(wavesurfer.getDuration(), wavesurfer);
     });
 
     return () => {
       wavesurfer.destroy();
     };
   }, [file]);
+
+  useEffect(() => {
+    if (wavesurferRef.current && isPlaying) {
+      wavesurferRef.current.play();
+    } else if (wavesurferRef.current && !isPlaying) {
+      wavesurferRef.current.pause();
+    }
+  }, [isPlaying]);
 
   const handleMouseDown = (e: React.MouseEvent) => {
     isDragging.current = true;

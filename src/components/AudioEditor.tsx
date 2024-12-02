@@ -5,17 +5,21 @@ import TrackUploader from './TrackUploader';
 import AudioTrack from './AudioTrack';
 import Timeline from './Timeline';
 import { useToast } from "@/components/ui/use-toast";
+import { Button } from "@/components/ui/button";
 
 interface Track {
   file: File;
   id: string;
   position: number;
   duration: number;
+  wavesurfer?: WaveSurfer;
 }
 
 const AudioEditor: React.FC = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTrackIndex, setCurrentTrackIndex] = useState(0);
   const ffmpegRef = useRef(new FFmpeg());
   const [loaded, setLoaded] = useState(false);
   const { toast } = useToast();
@@ -41,16 +45,16 @@ const AudioEditor: React.FC = () => {
     const newTracks = files.map((file, index) => ({
       file,
       id: Math.random().toString(36).substr(2, 9),
-      position: startPosition + (index * 100), // Add some spacing between tracks
+      position: startPosition + (index * 100),
       duration: 0,
     }));
     setTracks((prev) => [...prev, ...newTracks]);
   };
 
-  const handleTrackLoad = (id: string, duration: number) => {
+  const handleTrackLoad = (id: string, duration: number, wavesurfer: WaveSurfer) => {
     setTracks((prev) =>
       prev.map((track) =>
-        track.id === id ? { ...track, duration } : track
+        track.id === id ? { ...track, duration, wavesurfer } : track
       )
     );
   };
@@ -63,8 +67,52 @@ const AudioEditor: React.FC = () => {
     );
   };
 
+  const playTracks = async () => {
+    if (tracks.length === 0) return;
+    
+    setIsPlaying(true);
+    setCurrentTrackIndex(0);
+
+    const playTrackSequentially = async (index: number) => {
+      if (index >= tracks.length) {
+        setIsPlaying(false);
+        setCurrentTrackIndex(0);
+        return;
+      }
+
+      const currentTrack = tracks[index];
+      if (currentTrack.wavesurfer) {
+        currentTrack.wavesurfer.play();
+        currentTrack.wavesurfer.on('finish', () => {
+          playTrackSequentially(index + 1);
+        });
+      }
+    };
+
+    await playTrackSequentially(0);
+  };
+
+  const stopPlayback = () => {
+    tracks.forEach(track => {
+      if (track.wavesurfer) {
+        track.wavesurfer.stop();
+      }
+    });
+    setIsPlaying(false);
+    setCurrentTrackIndex(0);
+  };
+
   const exportTimeline = async () => {
-    if (!loaded || tracks.length === 0) {
+    if (!loaded) {
+      toast({
+        title: "Export Error",
+        description: "FFmpeg is not loaded yet. Please try again in a moment.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (tracks.length === 0) {
       toast({
         title: "Export Error",
         description: "Please add some tracks before exporting",
@@ -139,31 +187,53 @@ const AudioEditor: React.FC = () => {
         <TrackUploader onFilesAdded={handleFilesAdded} />
 
         {tracks.length > 0 && (
-          <div className="relative border border-gray-700 rounded-lg p-4 overflow-x-auto">
-            <Timeline duration={maxDuration} width={timelineWidth} />
-            
-            <div className="relative mt-4 space-y-4" style={{ width: `${timelineWidth}px` }}>
-              {tracks.map((track) => (
-                <AudioTrack
-                  key={track.id}
-                  file={track.file}
-                  onLoad={(duration) => handleTrackLoad(track.id, duration)}
-                  position={track.position}
-                  onPositionChange={(newPosition) => handlePositionChange(track.id, newPosition)}
-                />
-              ))}
+          <>
+            <div className="flex gap-4 mb-4">
+              <Button
+                variant="default"
+                onClick={playTracks}
+                disabled={isPlaying}
+                className="bg-green-500 hover:bg-green-600"
+              >
+                Play All
+              </Button>
+              <Button
+                variant="default"
+                onClick={stopPlayback}
+                disabled={!isPlaying}
+                className="bg-red-500 hover:bg-red-600"
+              >
+                Stop
+              </Button>
             </div>
-          </div>
+
+            <div className="relative border border-gray-700 rounded-lg p-4 overflow-x-auto">
+              <Timeline duration={maxDuration} width={timelineWidth} />
+              
+              <div className="relative mt-4 space-y-4" style={{ width: `${timelineWidth}px` }}>
+                {tracks.map((track) => (
+                  <AudioTrack
+                    key={track.id}
+                    file={track.file}
+                    onLoad={(duration, wavesurfer) => handleTrackLoad(track.id, duration, wavesurfer)}
+                    position={track.position}
+                    onPositionChange={(newPosition) => handlePositionChange(track.id, newPosition)}
+                    isPlaying={isPlaying && tracks.indexOf(track) === currentTrackIndex}
+                  />
+                ))}
+              </div>
+            </div>
+          </>
         )}
 
         {tracks.length > 0 && (
-          <button
-            className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          <Button
+            className="w-full"
             onClick={exportTimeline}
             disabled={isExporting}
           >
             {isExporting ? 'Exporting...' : 'Export Timeline'}
-          </button>
+          </Button>
         )}
       </div>
     </div>
