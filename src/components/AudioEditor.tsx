@@ -30,31 +30,49 @@ const AudioEditor: React.FC = () => {
   const load = async () => {
     try {
       setIsFFmpegLoading(true);
+      console.log('Starting FFmpeg loading process...');
+      
       const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
       const ffmpeg = ffmpegRef.current;
+      
+      console.log('Fetching FFmpeg resources...');
+      const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
+      const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+      
+      console.log('Loading FFmpeg with fetched resources...');
       await ffmpeg.load({
-        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
-        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        coreURL,
+        wasmURL,
       });
+      
+      console.log('FFmpeg loaded successfully');
       setLoaded(true);
+      setIsFFmpegLoading(false);
+      
       toast({
         title: "Ready to Export",
         description: "FFmpeg has been loaded successfully.",
       });
     } catch (error) {
-      console.error('FFmpeg loading error:', error);
+      console.error('Detailed FFmpeg loading error:', error);
+      setIsFFmpegLoading(false);
+      setLoaded(false);
+      
       toast({
         title: "FFmpeg Loading Error",
-        description: "Failed to load FFmpeg. Export functionality may be limited.",
+        description: "Failed to load FFmpeg. Please refresh and try again.",
         variant: "destructive",
       });
-    } finally {
-      setIsFFmpegLoading(false);
     }
   };
 
   React.useEffect(() => {
+    console.log('Initial load effect triggered');
     load();
+    return () => {
+      // Cleanup if needed
+      console.log('Cleaning up FFmpeg resources');
+    };
   }, []);
 
   const handleFilesAdded = (files: File[]) => {
