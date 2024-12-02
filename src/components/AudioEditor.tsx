@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { toBlobURL, fetchFile } from '@ffmpeg/util';
+import WaveSurfer from 'wavesurfer.js';
 import TrackUploader from './TrackUploader';
 import AudioTrack from './AudioTrack';
 import Timeline from './Timeline';
