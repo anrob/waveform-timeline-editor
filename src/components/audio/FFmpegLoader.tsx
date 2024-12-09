@@ -8,20 +8,25 @@ export const useFFmpeg = () => {
   const [isFFmpegLoading, setIsFFmpegLoading] = useState(true);
   const { toast } = useToast();
   const loadAttemptRef = useRef(0);
+  const isLoadingRef = useRef(false);
 
   const load = async () => {
+    if (isLoadingRef.current) {
+      console.log('[FFmpeg] Already loading, skipping...');
+      return;
+    }
+
     try {
+      isLoadingRef.current = true;
       setIsFFmpegLoading(true);
       console.log(`[FFmpeg] Starting load attempt ${loadAttemptRef.current + 1}`);
       
-      // Use jsdelivr CDN which is more reliable
       const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
       const ffmpeg = ffmpegRef.current;
       
       console.log('[FFmpeg] Fetching resources from:', baseURL);
       
-      // Fetch resources with timeout and retry logic
-      const fetchWithTimeout = async (url: string, timeout = 5000) => {
+      const fetchWithTimeout = async (url: string, timeout = 10000) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
         
@@ -71,12 +76,10 @@ export const useFFmpeg = () => {
       setIsFFmpegLoading(false);
       setLoaded(false);
       
-      // Increment attempt counter
       loadAttemptRef.current += 1;
       
-      // Retry up to 3 times with increasing delay
       if (loadAttemptRef.current < 3) {
-        const retryDelay = loadAttemptRef.current * 2000; // 2s, 4s, 6s
+        const retryDelay = loadAttemptRef.current * 2000;
         console.log(`[FFmpeg] Retrying in ${retryDelay/1000}s... (Attempt ${loadAttemptRef.current + 1}/3)`);
         
         toast({
@@ -84,7 +87,10 @@ export const useFFmpeg = () => {
           description: `Retrying in ${retryDelay/1000} seconds... (Attempt ${loadAttemptRef.current + 1}/3)`,
         });
         
-        setTimeout(load, retryDelay);
+        setTimeout(() => {
+          isLoadingRef.current = false;
+          load();
+        }, retryDelay);
       } else {
         console.error('[FFmpeg] Max retry attempts reached');
         toast({
@@ -93,17 +99,22 @@ export const useFFmpeg = () => {
           variant: "destructive",
         });
       }
+    } finally {
+      if (!isLoadingRef.current) {
+        isLoadingRef.current = false;
+      }
     }
   };
 
   useEffect(() => {
     console.log('[FFmpeg] Initial load effect triggered');
     load();
+    
     return () => {
-      console.log('[FFmpeg] Cleaning up FFmpeg resources');
-      const ffmpeg = ffmpegRef.current;
-      if (ffmpeg) {
-        ffmpeg.terminate();
+      console.log('[FFmpeg] Cleanup triggered');
+      if (!isLoadingRef.current && ffmpegRef.current) {
+        console.log('[FFmpeg] Cleaning up FFmpeg resources');
+        ffmpegRef.current.terminate();
       }
     };
   }, []);
