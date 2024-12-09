@@ -32,12 +32,21 @@ const AudioEditor: React.FC = () => {
       setIsFFmpegLoading(true);
       console.log('Starting FFmpeg loading process...');
       
-      const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+      // Using jsDelivr CDN instead of unpkg
+      const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
       const ffmpeg = ffmpegRef.current;
       
       console.log('Fetching FFmpeg resources...');
-      const coreURL = await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript');
-      const wasmURL = await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm');
+      
+      // Load the resources with proper CORS headers
+      const coreResponse = await fetch(`${baseURL}/ffmpeg-core.js`);
+      const wasmResponse = await fetch(`${baseURL}/ffmpeg-core.wasm`);
+      
+      const coreBlob = await coreResponse.blob();
+      const wasmBlob = await wasmResponse.blob();
+      
+      const coreURL = URL.createObjectURL(coreBlob);
+      const wasmURL = URL.createObjectURL(wasmBlob);
       
       console.log('Loading FFmpeg with fetched resources...');
       await ffmpeg.load({
@@ -48,6 +57,10 @@ const AudioEditor: React.FC = () => {
       console.log('FFmpeg loaded successfully');
       setLoaded(true);
       setIsFFmpegLoading(false);
+      
+      // Clean up the URLs
+      URL.revokeObjectURL(coreURL);
+      URL.revokeObjectURL(wasmURL);
       
       toast({
         title: "Ready to Export",
@@ -72,6 +85,10 @@ const AudioEditor: React.FC = () => {
     return () => {
       // Cleanup if needed
       console.log('Cleaning up FFmpeg resources');
+      const ffmpeg = ffmpegRef.current;
+      if (ffmpeg) {
+        ffmpeg.terminate();
+      }
     };
   }, []);
 
