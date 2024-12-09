@@ -6,6 +6,7 @@ import { Track } from './audio/types';
 import { useFFmpeg } from './audio/FFmpegLoader';
 import { ExportButton } from './audio/ExportButton';
 import { PlaybackControls } from './audio/PlaybackControls';
+import WaveSurfer from 'wavesurfer.js';
 
 const AudioEditor: React.FC = () => {
   const [tracks, setTracks] = useState<Track[]>([]);
