@@ -13,11 +13,13 @@ export const useFFmpeg = () => {
       setIsFFmpegLoading(true);
       console.log('Starting FFmpeg loading process...');
       
+      // Use jsdelivr CDN which is more reliable
       const baseURL = 'https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/umd';
       const ffmpeg = ffmpegRef.current;
       
       console.log('Fetching FFmpeg resources...');
       
+      // Fetch resources directly to handle CORS properly
       const coreResponse = await fetch(`${baseURL}/ffmpeg-core.js`);
       const wasmResponse = await fetch(`${baseURL}/ffmpeg-core.wasm`);
       
@@ -37,6 +39,7 @@ export const useFFmpeg = () => {
       setLoaded(true);
       setIsFFmpegLoading(false);
       
+      // Clean up blob URLs
       URL.revokeObjectURL(coreURL);
       URL.revokeObjectURL(wasmURL);
       
